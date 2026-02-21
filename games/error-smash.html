@@ -7,24 +7,62 @@
   <link rel="stylesheet" href="../styles.css" />
   <style>
     .gameWrap{display:grid; gap:14px;}
-    .gameTop{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start;}
     .bigCard{padding:18px; border-radius:18px; border:1px solid var(--line); background:#fff; box-shadow:var(--shadow);}
     .prompt{font-size:22px; font-weight:850; line-height:1.25;}
     .choices{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
     @media (max-width:720px){.choices{grid-template-columns:1fr;}}
-    .choice{padding:12px 12px; border-radius:14px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:800;}
+
+    .choice{
+      padding:12px 12px; border-radius:14px; border:1px solid var(--line);
+      background:#fff; cursor:pointer; font-weight:800; text-align:left;
+    }
     .choice:hover{filter:brightness(0.98);}
     .choice.correct{outline:3px solid #bff0d5;}
     .choice.wrong{outline:3px solid #ffc2c2;}
+
     .metaRow{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
     .chip{padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:var(--pill); font-size:12px; font-weight:800;}
-    .teacherBar{display:none;}
-    .teacherBar.show{display:flex; gap:10px; flex-wrap:wrap;}
-    .miniBtn{padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:#fff; font-weight:850; cursor:pointer;}
-    .miniBtn.primary{background:var(--btn); color:#fff; border-color:transparent;}
+
     .twoCol{display:grid; grid-template-columns:1.2fr .8fr; gap:14px;}
     @media (max-width:900px){.twoCol{grid-template-columns:1fr;}}
+
+    /* Teacher controls now live UNDER the answers (closer!) */
+    .teacherBar{display:none; margin-top:12px; gap:10px; flex-wrap:wrap;}
+    .teacherBar.show{display:flex;}
+    .miniBtn{
+      padding:10px 12px; border-radius:14px; border:1px solid var(--line);
+      background:#fff; font-weight:850; cursor:pointer;
+    }
+    .miniBtn.primary{background:var(--btn); color:#fff; border-color:transparent;}
     .teamBtn{width:100%; text-align:left;}
+
+    .reviewBox{
+      margin-top:14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      background:#fff;
+    }
+    .reviewItem{
+      border-top:1px solid var(--line);
+      padding-top:10px;
+      margin-top:10px;
+    }
+    .reviewItem:first-child{
+      border-top:none;
+      padding-top:0;
+      margin-top:0;
+    }
+    .tag{
+      display:inline-block;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:var(--pill);
+      font-size:12px;
+      font-weight:800;
+      margin-right:6px;
+    }
   </style>
 </head>
 <body>
@@ -43,26 +81,27 @@
 
   <main class="container gameWrap">
     <section class="card">
-      <div class="gameTop">
-        <div class="metaRow">
-          <span class="chip" id="chipMode"></span>
-          <span class="chip" id="chipCalm"></span>
-          <span class="chip" id="chipPack"></span>
-        </div>
-
-        <div class="teacherBar" id="teacherBar">
-          <button class="miniBtn" id="btnReveal">Reveal Answer</button>
-          <button class="miniBtn" id="btnSkip">Skip</button>
-          <button class="miniBtn primary" id="btnNext">Next</button>
-        </div>
+      <div class="metaRow">
+        <span class="chip" id="chipMode"></span>
+        <span class="chip" id="chipCalm"></span>
+        <span class="chip" id="chipPack"></span>
+        <span class="chip" id="chipProgress"></span>
       </div>
     </section>
 
     <section class="twoCol">
-      <div class="bigCard">
+      <div class="bigCard" id="mainCard">
         <div class="prompt" id="prompt">…</div>
         <div class="choices" id="choices"></div>
         <div style="margin-top:12px" class="muted" id="feedback"></div>
+
+        <!-- Teacher controls moved here (close to answers) -->
+        <div class="teacherBar" id="teacherBar">
+          <button class="miniBtn" id="btnReveal">Reveal</button>
+          <button class="miniBtn" id="btnSkip">Skip</button>
+          <button class="miniBtn primary" id="btnNext">Next</button>
+          <button class="miniBtn" id="btnEnd">End Game</button>
+        </div>
       </div>
 
       <div class="bigCard">
@@ -80,7 +119,9 @@ const STORAGE = { teacherSession: "gg_teacher_session" };
 function qs(){ return new URLSearchParams(location.search); }
 function $(id){ return document.getElementById(id); }
 function escapeHtml(str){
-  return (str ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
+  return (str ?? "").replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[m]));
 }
 function loadTeacherSession(){
   const raw = localStorage.getItem(STORAGE.teacherSession);
@@ -95,6 +136,22 @@ let items = [];
 let idx = 0;
 let revealed = false;
 let teacher = false;
+
+// Track performance for end-of-game teacher review
+// keyed by original prompt string
+const attemptLog = new Map(); // prompt -> { wrongPicks:Set<string>, correct:string, rule:string }
+const incorrectPrompts = new Set(); // prompts where student/teams made at least one wrong pick
+
+function ensureLogForItem(item){
+  if(!attemptLog.has(item.prompt)){
+    attemptLog.set(item.prompt, {
+      wrongPicks: new Set(),
+      correct: item.choices[item.answer],
+      rule: item.rule || PACK.microRules?.default || ""
+    });
+  }
+  return attemptLog.get(item.prompt);
+}
 
 function renderTeams(session){
   const wrap = $("teams");
@@ -152,13 +209,21 @@ function setFeedback(type, text){
   el.style.color = type === "good" ? "var(--good)" : type === "bad" ? "var(--bad)" : "var(--muted)";
 }
 
+function updateProgress(){
+  $("chipProgress").textContent = `Q ${idx+1} / ${items.length}`;
+}
+
 function showItem(){
   revealed = false;
-  setFeedback("neutral", "Choose the best correction. It’s okay to try again.");
-  const item = items[idx];
-  $("prompt").innerHTML = escapeHtml(item.prompt);
+  updateProgress();
 
+  const item = items[idx];
+  ensureLogForItem(item);
+
+  setFeedback("neutral", "Choose the best correction. It’s okay to try again.");
+  $("prompt").innerHTML = escapeHtml(item.prompt);
   $("microRule").textContent = item.rule || PACK.microRules?.default || "";
+  $("subTitle").textContent = PACK.title;
 
   const choices = $("choices");
   choices.innerHTML = "";
@@ -169,8 +234,6 @@ function showItem(){
     btn.onclick = ()=> onChoice(i, btn);
     choices.appendChild(btn);
   });
-
-  $("subTitle").textContent = PACK.title;
 }
 
 function markAnswer(correctIndex){
@@ -184,27 +247,113 @@ function onChoice(i, btn){
   if(revealed) return;
 
   const item = items[idx];
+  const log = ensureLogForItem(item);
+
   if(i === item.answer){
     btn.classList.add("correct");
     setFeedback("good", "Nice catch. You fixed the grammar!");
     revealed = true;
   }else{
+    // log incorrect
+    incorrectPrompts.add(item.prompt);
+    log.wrongPicks.add(item.choices[i]);
+
     btn.classList.add("wrong");
     setFeedback("bad", "Almost. Try again—look at the verb form and time signal.");
   }
+}
+
+function reveal(){
+  const item = items[idx];
+  ensureLogForItem(item);
+
+  revealed = true;
+  markAnswer(item.answer);
+  setFeedback("neutral", "Answer revealed. Ask: Why is this form correct?");
 }
 
 function next(){
   idx = (idx + 1) % items.length;
   showItem();
 }
-function reveal(){
-  revealed = true;
-  markAnswer(items[idx].answer);
-  setFeedback("neutral", "Answer revealed. Ask: Why is this form correct?");
-}
+
 function skip(){
   next();
+}
+
+function showSummary(){
+  const session = loadTeacherSession();
+  const teams = session?.teams || [];
+  const sorted = [...teams].sort((a,b)=>b.score-a.score);
+  const winner = sorted[0];
+
+  const totalCorrect = teams.reduce((s,t)=>s+t.correct,0);
+  const totalTryAgain = teams.reduce((s,t)=>s+t.wrong,0);
+
+  // Build review section: incorrect prompts + correct correction + what they picked
+  const incorrectList = [...incorrectPrompts].map(p => ({
+    prompt: p,
+    ...attemptLog.get(p)
+  }));
+
+  // Keep it readable: show up to 10 (teacher can expand later if needed)
+  const maxShow = 10;
+  const shown = incorrectList.slice(0, maxShow);
+  const hiddenCount = Math.max(0, incorrectList.length - maxShow);
+
+  let reviewHtml = "";
+  if(incorrectList.length === 0){
+    reviewHtml = `<div class="muted">No incorrect answers were recorded. (Amazing.)</div>`;
+  } else {
+    reviewHtml = shown.map((it, n)=>{
+      const wrongs = [...(it.wrongPicks || [])];
+      const wrongText = wrongs.length
+        ? wrongs.map(w=>`<span class="tag">Picked</span> ${escapeHtml(w)}`).join("<br/>")
+        : `<span class="muted">No wrong pick recorded (maybe revealed/skip).</span>`;
+
+      return `
+        <div class="reviewItem">
+          <div class="muted small"><strong>#${n+1}</strong></div>
+          <div style="margin:6px 0 8px; font-weight:900">${escapeHtml(it.prompt)}</div>
+          <div style="margin:8px 0">
+            <span class="tag">Correct</span> <strong>${escapeHtml(it.correct)}</strong>
+          </div>
+          <div style="margin:8px 0">${wrongText}</div>
+          ${it.rule ? `<div class="muted small" style="margin-top:8px"><strong>Quick rule:</strong> ${escapeHtml(it.rule)}</div>` : ""}
+        </div>
+      `;
+    }).join("");
+
+    if(hiddenCount > 0){
+      reviewHtml += `<div class="muted small" style="margin-top:10px">(+${hiddenCount} more missed items not shown)</div>`;
+    }
+  }
+
+  $("mainCard").innerHTML = `
+    <h2 style="margin:0 0 8px">Game Summary</h2>
+    <p class="muted" style="margin:0 0 14px">Quick recap + what to review.</p>
+
+    <div class="badge" style="margin-bottom:10px; width:100%">
+      <span class="dot good"></span>
+      <div style="width:100%">
+        <div class="kpi">
+          <span><strong>Winning Team:</strong> ${winner ? escapeHtml(winner.name) : "—"}</span>
+          <span>${winner ? winner.score : 0}</span>
+        </div>
+        <div class="muted small">Total correct: ${totalCorrect} • Try-agains: ${totalTryAgain}</div>
+      </div>
+    </div>
+
+    <div class="reviewBox">
+      <div style="font-weight:900; margin-bottom:8px">Teacher Review: Missed Items</div>
+      ${reviewHtml}
+    </div>
+
+    <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="miniBtn primary" onclick="location.href='../index.html#teacher'">Return to Lobby</button>
+      <button class="miniBtn" onclick="location.reload()">Play Again (same settings)</button>
+    </div>
+  `;
 }
 
 async function init(){
@@ -227,8 +376,8 @@ async function init(){
 
   items = (PACK.games?.errorSmash?.items || []).slice();
   items.sort(()=> Math.random() - 0.5);
-  idx = 0;
 
+  idx = 0;
   showItem();
 
   const session = loadTeacherSession();
@@ -237,11 +386,12 @@ async function init(){
   $("btnNext").onclick = next;
   $("btnReveal").onclick = reveal;
   $("btnSkip").onclick = skip;
+  $("btnEnd").onclick = showSummary;
 }
 
 init().catch(err=>{
   console.error(err);
-  alert("Error loading the game. Check hosting + file paths. " + err.message);
+  alert("Error loading the game. " + err.message);
 });
 </script>
 </body>
