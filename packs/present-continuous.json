@@ -1,0 +1,53 @@
+{
+  "id": "present-continuous",
+  "title": "Present Continuous",
+  "level": "WIDA 1-3",
+  "microRules": {
+    "default": "Use am/is/are + verb-ing for actions happening now or around now."
+  },
+  "games": {
+    "errorSmash": {
+      "items": [
+        {
+          "prompt": "He playing basketball right now.",
+          "choices": ["He is playing basketball right now.", "He plays basketball right now."],
+          "answer": 0,
+          "rule": "Present continuous needs am/is/are."
+        },
+        {
+          "prompt": "They are study in the library.",
+          "choices": ["They are studying in the library.", "They study in the library right now."],
+          "answer": 0,
+          "rule": "After are → verb-ing."
+        },
+        {
+          "prompt": "I am going to school every day.",
+          "choices": ["I go to school every day.", "I am going to school right now."],
+          "answer": 0,
+          "rule": "Every day = habit → present simple."
+        },
+        {
+          "prompt": "She is talk to the teacher.",
+          "choices": ["She is talking to the teacher.", "She talks to the teacher now."],
+          "answer": 0,
+          "rule": "is + verb-ing."
+        }
+      ]
+    },
+    "dragSort": {
+      "binA": "Present Continuous (Now / Around Now)",
+      "binB": "NOT Present Continuous",
+      "directions": "Drag each sentence into the correct box.",
+      "items": [
+        { "text": "I am writing an email right now.", "correct": "A" },
+        { "text": "He is cooking dinner.", "correct": "A" },
+        { "text": "They play soccer on Saturdays.", "correct": "B" },
+        { "text": "She goes to school every day.", "correct": "B" },
+        { "text": "We are studying for a test this week.", "correct": "A" },
+        { "text": "Water boils at 100°C.", "correct": "B" },
+        { "text": "Look! The bus is coming.", "correct": "A" },
+        { "text": "My dad works in an office.", "correct": "B" }
+      ]
+    }
+  }
+}

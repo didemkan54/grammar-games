@@ -1,0 +1,53 @@
+{
+  "id": "present-simple",
+  "title": "Present Simple",
+  "level": "WIDA 1-3",
+  "microRules": {
+    "default": "Use present simple for habits, routines, and facts. Add -s/-es with he/she/it."
+  },
+  "games": {
+    "errorSmash": {
+      "items": [
+        {
+          "prompt": "She go to school every day.",
+          "choices": ["She goes to school every day.", "She is going to school every day."],
+          "answer": 0,
+          "rule": "He/She/It → add -s/-es in present simple."
+        },
+        {
+          "prompt": "They plays soccer on Saturdays.",
+          "choices": ["They play soccer on Saturdays.", "They are play soccer on Saturdays."],
+          "answer": 0,
+          "rule": "No -s with they/we/you/I."
+        },
+        {
+          "prompt": "My brother don't like coffee.",
+          "choices": ["My brother doesn't like coffee.", "My brother isn't like coffee."],
+          "answer": 0,
+          "rule": "He/She/It → doesn't + base verb."
+        },
+        {
+          "prompt": "I am eat lunch at 12:00.",
+          "choices": ["I eat lunch at 12:00.", "I am eating lunch at 12:00."],
+          "answer": 0,
+          "rule": "Routines/time schedules often use present simple."
+        }
+      ]
+    },
+    "dragSort": {
+      "binA": "Present Simple (Habit / Fact)",
+      "binB": "NOT Present Simple",
+      "directions": "Drag each sentence into the correct box.",
+      "items": [
+        { "text": "He studies after school.", "correct": "A" },
+        { "text": "They play video games on Fridays.", "correct": "A" },
+        { "text": "I am studying right now.", "correct": "B" },
+        { "text": "She is talking on the phone.", "correct": "B" },
+        { "text": "Water boils at 100°C.", "correct": "A" },
+        { "text": "Look! It is raining.", "correct": "B" },
+        { "text": "My mom works in a hospital.", "correct": "A" },
+        { "text": "We are working on the project.", "correct": "B" }
+      ]
+    }
+  }
+}

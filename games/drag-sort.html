@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Drag & Sort</title>
+  <link rel="stylesheet" href="../styles.css" />
+  <style>
+    .wrap{display:grid; gap:14px;}
+    .board{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+    @media (max-width:900px){.board{grid-template-columns:1fr;}}
+    .bin{background:#fff; border:1px solid var(--line); border-radius:18px; padding:14px; box-shadow:var(--shadow); min-height:240px;}
+    .binTitle{font-weight:900; margin-bottom:10px;}
+    .cardlet{border:1px solid var(--line); background:#fff; border-radius:14px; padding:10px 12px; margin-bottom:10px; cursor:grab; font-weight:800;}
+    .bank{background:#fff; border:1px solid var(--line); border-radius:18px; padding:14px; box-shadow:var(--shadow);}
+    .bankGrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+    @media (max-width:900px){.bankGrid{grid-template-columns:1fr;}}
+    .teacherBar{display:none;}
+    .teacherBar.show{display:flex; gap:10px; flex-wrap:wrap;}
+    .miniBtn{padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:#fff; font-weight:850; cursor:pointer;}
+    .miniBtn.primary{background:var(--btn); color:#fff; border-color:transparent;}
+    .status{margin-top:10px; font-weight:850;}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">DS</div>
+      <div>
+        <div class="brand-title">Drag & Sort</div>
+        <div class="brand-sub" id="subTitle">Loading…</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="ghost" id="btnBack">Home</button>
+    </div>
+  </header>
+
+  <main class="container wrap">
+    <section class="card">
+      <div class="row space-between" style="flex-wrap:wrap">
+        <div class="row" style="gap:10px; flex-wrap:wrap">
+          <span class="pill" id="chipMode"></span>
+          <span class="pill" id="chipCalm"></span>
+          <span class="pill" id="chipPack"></span>
+        </div>
+        <div class="teacherBar" id="teacherBar">
+          <button class="miniBtn" id="btnCheck">Check</button>
+          <button class="miniBtn" id="btnResetRound">Reset Round</button>
+          <button class="miniBtn primary" id="btnNewRound">New Round</button>
+        </div>
+      </div>
+      <div class="muted small" id="directions"></div>
+      <div class="status" id="status"></div>
+    </section>
+
+    <section class="board">
+      <div class="bin" id="binA" ondragover="event.preventDefault()"></div>
+      <div class="bin" id="binB" ondragover="event.preventDefault()"></div>
+    </section>
+
+    <section class="bank">
+      <div class="binTitle">Sentence Bank</div>
+      <div class="bankGrid" id="bank"></div>
+    </section>
+  </main>
+
+<script>
+function qs(){ return new URLSearchParams(location.search); }
+function $(id){ return document.getElementById(id); }
+function escapeHtml(str){
+  return (str ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
+}
+
+let PACK=null;
+let round=null;
+let teacher=false;
+
+function makeCard(text, id, correctBin){
+  const div=document.createElement("div");
+  div.className="cardlet";
+  div.draggable=true;
+  div.id=id;
+  div.dataset.correct=correctBin;
+  div.innerHTML=escapeHtml(text);
+  div.ondragstart=(e)=> e.dataTransfer.setData("text/plain", id);
+  return div;
+}
+
+function dropHandler(){
+  return (e)=>{
+    e.preventDefault();
+    const id=e.dataTransfer.getData("text/plain");
+    const el=document.getElementById(id);
+    if(!el) return;
+    e.currentTarget.appendChild(el);
+  };
+}
+
+function loadRound(){
+  const items = (PACK.games?.dragSort?.items || []).slice().sort(()=>Math.random()-0.5);
+  const pick = items.slice(0, 8);
+
+  round = {
+    aTitle: PACK.games.dragSort.binA,
+    bTitle: PACK.games.dragSort.binB,
+    directions: PACK.games.dragSort.directions,
+    cards: pick
+  };
+
+  $("subTitle").textContent = PACK.title;
+  $("directions").textContent = round.directions;
+
+  const binA=$("binA"), binB=$("binB");
+  binA.innerHTML = `<div class="binTitle">${escapeHtml(round.aTitle)}</div>`;
+  binB.innerHTML = `<div class="binTitle">${escapeHtml(round.bTitle)}</div>`;
+  binA.ondrop = dropHandler();
+  binB.ondrop = dropHandler();
+
+  const bank=$("bank");
+  bank.innerHTML="";
+  pick.forEach((it, i)=>{
+    bank.appendChild(makeCard(it.text, "card_"+i, it.correct));
+  });
+
+  $("status").textContent = "Drag sentences into the correct box. No stress—try, adjust, learn.";
+}
+
+function check(){
+  const allCards=[...document.querySelectorAll(".cardlet")];
+  let correct=0;
+  allCards.forEach(c=>{
+    const parentId=c.parentElement.id;
+    const placed = parentId==="binA" ? "A" : parentId==="binB" ? "B" : "BANK";
+    if(placed !== "BANK" && placed === c.dataset.correct) correct++;
+  });
+  $("status").textContent = `Check: ${correct} / ${allCards.length} correct. Fix the ones you’re unsure about.`;
+}
+
+async function init(){
+  const p = qs().get("pack");
+  const packId = qs().get("packId") || "";
+  const mode = qs().get("mode") || "whole";
+  const calm = qs().get("calm") === "1";
+  teacher = qs().get("teacher") === "1";
+
+  $("chipMode").textContent = mode === "whole" ? "Whole Class" : "Solo";
+  $("chipCalm").textContent = calm ? "Calm Mode: ON" : "Calm Mode: OFF";
+  $("chipPack").textContent = packId;
+
+  if(teacher) $("teacherBar").classList.add("show");
+
+  $("btnBack").onclick = ()=> location.href = "../index.html#teacher";
+
+  const res = await fetch("../" + p);
+  PACK = await res.json();
+
+  loadRound();
+
+  $("btnCheck").onclick = check;
+  $("btnResetRound").onclick = loadRound;
+  $("btnNewRound").onclick = loadRound;
+}
+init().catch(err=>{
+  console.error(err);
+  alert("Error loading the game. " + err.message);
+});
+</script>
+</body>
+</html>

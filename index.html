@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Grammar Games | Mrs. Kan</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">GG</div>
+      <div>
+        <div class="brand-title">Grammar Games</div>
+        <div class="brand-sub">Pastel • Calm • Competitive (Teams)</div>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="ghost" id="btnGoHome" title="Home">Home</button>
+      <button class="ghost" id="btnReset" title="Reset this device">Reset Device</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card hero">
+      <div class="hero-left">
+        <h1>Teach grammar like a game—without the stress.</h1>
+        <p class="muted">
+          Whole-class on Boxlight or solo on Chromebooks. Students join with a code. Content comes from packs you can edit.
+        </p>
+        <div class="pill-row">
+          <span class="pill">Team Leaderboard</span>
+          <span class="pill">Calm Mode</span>
+          <span class="pill">JSON Packs</span>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="tabs">
+          <button class="tab active" data-tab="teacher">Teacher</button>
+          <button class="tab" data-tab="student">Student</button>
+        </div>
+
+        <div class="panel" id="panelTeacher">
+          <h2 class="h2">Create a Class Session</h2>
+
+          <label class="label">Class name</label>
+          <input class="input" id="teacherClassName" placeholder="e.g., Period 4 - ELD" />
+
+          <div class="grid2">
+            <div>
+              <label class="label">Mode</label>
+              <select class="select" id="teacherMode">
+                <option value="whole">Whole Class (Boxlight)</option>
+                <option value="solo">Solo (Chromebooks)</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Calm Mode</label>
+              <div class="row">
+                <input type="checkbox" id="teacherCalm" checked />
+                <span class="muted">Hide timers + reduce pressure</span>
+              </div>
+            </div>
+          </div>
+
+          <label class="label">Team names (comma-separated)</label>
+          <input class="input" id="teacherTeams" value="Blue, Pink, Green, Purple" />
+
+          <label class="label">Choose Pack</label>
+          <select class="select" id="teacherPack"></select>
+
+          <label class="label">Choose Game</label>
+          <select class="select" id="teacherGame">
+            <option value="error-smash">Error Smash</option>
+            <option value="drag-sort">Drag & Sort</option>
+          </select>
+
+          <button class="btn" id="btnCreateSession">Create Join Code</button>
+
+          <div class="callout" id="teacherCreated" style="display:none">
+            <div class="callout-title">Students join at:</div>
+            <div class="mono" id="joinUrl"></div>
+            <div class="callout-title" style="margin-top:10px">Join code:</div>
+            <div class="code" id="joinCode"></div>
+            <div class="muted small">Tip: Put the URL on a slide or QR code later.</div>
+
+            <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
+              <button class="btn" id="btnLaunchTeacher">Launch Teacher Screen</button>
+              <button class="ghost" id="btnCopyJoin">Copy Join Link</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="panelStudent" style="display:none">
+          <h2 class="h2">Join a Class</h2>
+
+          <label class="label">Join code</label>
+          <input class="input" id="studentCode" placeholder="e.g., KAN-4821" />
+
+          <button class="btn" id="btnJoin">Join</button>
+
+          <div class="callout" id="studentJoined" style="display:none">
+            <div class="callout-title">You’re in!</div>
+            <p class="muted small">Wait for your teacher to start. Your team will be chosen in class.</p>
+            <button class="ghost" id="btnStudentClear">Leave this class</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="card" id="teacherLobby" style="display:none">
+      <div class="row space-between">
+        <div>
+          <h2 class="h2" id="lobbyTitle">Teacher Lobby</h2>
+          <div class="muted small" id="lobbyMeta"></div>
+        </div>
+        <div class="row" style="gap:10px; flex-wrap:wrap;">
+          <button class="ghost" id="btnEndSession">End Session</button>
+          <button class="btn" id="btnStartGame">Start Game</button>
+        </div>
+      </div>
+
+      <hr class="sep" />
+
+      <div class="grid2">
+        <div>
+          <h3 class="h3">Teams</h3>
+          <div id="teamsList" class="stack"></div>
+          <div class="muted small">Leaderboards show team names only.</div>
+        </div>
+
+        <div>
+          <h3 class="h3">Live Scoreboard</h3>
+          <div id="scoreboard" class="stack"></div>
+          <div class="muted small">Teacher controls appear inside the game screen too.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="studentWaiting" style="display:none">
+      <h2 class="h2">Waiting for your teacher…</h2>
+      <p class="muted">Keep this tab open. When the game starts, you’ll see instructions (or you may just watch the Boxlight).</p>
+      <div class="callout">
+        <div class="callout-title">Joined Code</div>
+        <div class="code" id="studentWaitingCode"></div>
+      </div>
+      <button class="ghost" id="btnStudentLeave">Leave this class</button>
+    </section>
+
+    <footer class="footer muted small">
+      Mrs. Kan • Grammar Games MVP • Packs are editable JSON • Calm mode is built-in
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

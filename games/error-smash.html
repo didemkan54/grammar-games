@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Error Smash</title>
+  <link rel="stylesheet" href="../styles.css" />
+  <style>
+    .gameWrap{display:grid; gap:14px;}
+    .gameTop{display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start;}
+    .bigCard{padding:18px; border-radius:18px; border:1px solid var(--line); background:#fff; box-shadow:var(--shadow);}
+    .prompt{font-size:22px; font-weight:850; line-height:1.25;}
+    .choices{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
+    @media (max-width:720px){.choices{grid-template-columns:1fr;}}
+    .choice{padding:12px 12px; border-radius:14px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:800;}
+    .choice:hover{filter:brightness(0.98);}
+    .choice.correct{outline:3px solid #bff0d5;}
+    .choice.wrong{outline:3px solid #ffc2c2;}
+    .metaRow{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .chip{padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:var(--pill); font-size:12px; font-weight:800;}
+    .teacherBar{display:none;}
+    .teacherBar.show{display:flex; gap:10px; flex-wrap:wrap;}
+    .miniBtn{padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:#fff; font-weight:850; cursor:pointer;}
+    .miniBtn.primary{background:var(--btn); color:#fff; border-color:transparent;}
+    .twoCol{display:grid; grid-template-columns:1.2fr .8fr; gap:14px;}
+    @media (max-width:900px){.twoCol{grid-template-columns:1fr;}}
+    .teamBtn{width:100%; text-align:left;}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">ES</div>
+      <div>
+        <div class="brand-title">Error Smash</div>
+        <div class="brand-sub" id="subTitle">Loading…</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="ghost" id="btnBack">Home</button>
+    </div>
+  </header>
+
+  <main class="container gameWrap">
+    <section class="card">
+      <div class="gameTop">
+        <div class="metaRow">
+          <span class="chip" id="chipMode"></span>
+          <span class="chip" id="chipCalm"></span>
+          <span class="chip" id="chipPack"></span>
+        </div>
+
+        <div class="teacherBar" id="teacherBar">
+          <button class="miniBtn" id="btnReveal">Reveal Answer</button>
+          <button class="miniBtn" id="btnSkip">Skip</button>
+          <button class="miniBtn primary" id="btnNext">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="twoCol">
+      <div class="bigCard">
+        <div class="prompt" id="prompt">…</div>
+        <div class="choices" id="choices"></div>
+        <div style="margin-top:12px" class="muted" id="feedback"></div>
+      </div>
+
+      <div class="bigCard">
+        <h3 class="h3">Team Leaderboard</h3>
+        <div id="teams"></div>
+        <hr class="sep" />
+        <div class="muted small" id="microRule"></div>
+      </div>
+    </section>
+  </main>
+
+<script>
+const STORAGE = { teacherSession: "gg_teacher_session" };
+
+function qs(){ return new URLSearchParams(location.search); }
+function $(id){ return document.getElementById(id); }
+function escapeHtml(str){
+  return (str ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
+}
+function loadTeacherSession(){
+  const raw = localStorage.getItem(STORAGE.teacherSession);
+  return raw ? JSON.parse(raw) : null;
+}
+function saveTeacherSession(session){
+  localStorage.setItem(STORAGE.teacherSession, JSON.stringify(session));
+}
+
+let PACK = null;
+let items = [];
+let idx = 0;
+let revealed = false;
+let teacher = false;
+
+function renderTeams(session){
+  const wrap = $("teams");
+  wrap.innerHTML = "";
+
+  const sorted = [...session.teams].sort((a,b)=>b.score-a.score);
+  sorted.forEach((t, i)=>{
+    const div = document.createElement("div");
+    div.className = "badge";
+    div.innerHTML = `
+      <span class="dot ${i===0 ? "good" : ""}"></span>
+      <div style="width:100%">
+        <div class="kpi"><span>${i+1}. ${escapeHtml(t.name)}</span><span>${t.score}</span></div>
+        <div class="muted small">${t.correct} correct • ${t.wrong} try-agains</div>
+      </div>
+    `;
+    wrap.appendChild(div);
+  });
+
+  if(teacher){
+    const scoreBox = document.createElement("div");
+    scoreBox.style.marginTop = "12px";
+    scoreBox.innerHTML = `<div class="muted small" style="margin-bottom:8px">Teacher: award points to the team who answered.</div>`;
+    session.teams.forEach((t, tIdx)=>{
+      const b = document.createElement("button");
+      b.className = "miniBtn teamBtn";
+      b.textContent = `+10 to ${t.name}`;
+      b.onclick = ()=>{
+        session.teams[tIdx].score += 10;
+        session.teams[tIdx].correct += 1;
+        saveTeacherSession(session);
+        renderTeams(session);
+      };
+      scoreBox.appendChild(b);
+
+      const b2 = document.createElement("button");
+      b2.className = "miniBtn teamBtn";
+      b2.textContent = `+6 (2nd try) to ${t.name}`;
+      b2.onclick = ()=>{
+        session.teams[tIdx].score += 6;
+        session.teams[tIdx].correct += 1;
+        session.teams[tIdx].wrong += 1;
+        saveTeacherSession(session);
+        renderTeams(session);
+      };
+      scoreBox.appendChild(b2);
+    });
+    wrap.appendChild(scoreBox);
+  }
+}
+
+function setFeedback(type, text){
+  const el = $("feedback");
+  el.textContent = text;
+  el.style.color = type === "good" ? "var(--good)" : type === "bad" ? "var(--bad)" : "var(--muted)";
+}
+
+function showItem(){
+  revealed = false;
+  setFeedback("neutral", "Choose the best correction. It’s okay to try again.");
+  const item = items[idx];
+  $("prompt").innerHTML = escapeHtml(item.prompt);
+
+  $("microRule").textContent = item.rule || PACK.microRules?.default || "";
+
+  const choices = $("choices");
+  choices.innerHTML = "";
+  item.choices.forEach((c, i)=>{
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    btn.innerHTML = escapeHtml(c);
+    btn.onclick = ()=> onChoice(i, btn);
+    choices.appendChild(btn);
+  });
+
+  $("subTitle").textContent = PACK.title;
+}
+
+function markAnswer(correctIndex){
+  const choiceButtons = [...document.querySelectorAll(".choice")];
+  choiceButtons.forEach((b, i)=>{
+    if(i === correctIndex) b.classList.add("correct");
+  });
+}
+
+function onChoice(i, btn){
+  if(revealed) return;
+
+  const item = items[idx];
+  if(i === item.answer){
+    btn.classList.add("correct");
+    setFeedback("good", "Nice catch. You fixed the grammar!");
+    revealed = true;
+  }else{
+    btn.classList.add("wrong");
+    setFeedback("bad", "Almost. Try again—look at the verb form and time signal.");
+  }
+}
+
+function next(){
+  idx = (idx + 1) % items.length;
+  showItem();
+}
+function reveal(){
+  revealed = true;
+  markAnswer(items[idx].answer);
+  setFeedback("neutral", "Answer revealed. Ask: Why is this form correct?");
+}
+function skip(){
+  next();
+}
+
+async function init(){
+  const p = qs().get("pack");
+  const packId = qs().get("packId") || "";
+  const mode = qs().get("mode") || "whole";
+  const calm = qs().get("calm") === "1";
+  teacher = qs().get("teacher") === "1";
+
+  $("chipMode").textContent = mode === "whole" ? "Whole Class" : "Solo";
+  $("chipCalm").textContent = calm ? "Calm Mode: ON" : "Calm Mode: OFF";
+  $("chipPack").textContent = packId;
+
+  if(teacher) $("teacherBar").classList.add("show");
+
+  $("btnBack").onclick = ()=> location.href = "../index.html#teacher";
+
+  const res = await fetch("../" + p);
+  PACK = await res.json();
+
+  items = (PACK.games?.errorSmash?.items || []).slice();
+  items.sort(()=> Math.random() - 0.5);
+  idx = 0;
+
+  showItem();
+
+  const session = loadTeacherSession();
+  if(session) renderTeams(session);
+
+  $("btnNext").onclick = next;
+  $("btnReveal").onclick = reveal;
+  $("btnSkip").onclick = skip;
+}
+
+init().catch(err=>{
+  console.error(err);
+  alert("Error loading the game. Check hosting + file paths. " + err.message);
+});
+</script>
+</body>
+</html>
